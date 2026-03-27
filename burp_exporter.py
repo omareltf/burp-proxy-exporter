@@ -12,19 +12,21 @@ Usage:
   4. Files are created as <order>_request_<hash>.txt
 """
 
-from burp import IBurpExtender, IContextMenuFactory, IContextMenuInvocation
-from javax.swing import JMenuItem, JFileChooser, JOptionPane
-from java.awt.event import ActionListener
 import hashlib
 import os
 
+from burp import IBurpExtender, IContextMenuFactory, IContextMenuInvocation
+from java.awt.event import ActionListener
+from javax.swing import JFileChooser, JMenuItem, JOptionPane
 
 # ---------------------------------------------------------------------------
 # Proper ActionListener to avoid Jython double-fire bug with lambdas
 # ---------------------------------------------------------------------------
 
+
 class _ExportAction(ActionListener):
     """Swing ActionListener that calls the export handler exactly once."""
+
     def __init__(self, handler, invocation, ask_dir):
         self._handler = handler
         self._invocation = invocation
@@ -62,24 +64,28 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
     def createMenuItems(self, invocation):
         ctx = invocation.getInvocationContext()
-        if ctx != IContextMenuInvocation.CONTEXT_PROXY_HISTORY:
-            return None
+        if (
+            ctx == IContextMenuInvocation.CONTEXT_PROXY_HISTORY
+            or ctx == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST
+            or ctx == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_RESPONSE
+        ):
 
-        items = []
+            items = []
 
-        item1 = JMenuItem("Export to directory...")
-        item1.addActionListener(_ExportAction(self._do_export, invocation, True))
-        items.append(item1)
+            item1 = JMenuItem("Export to directory...")
+            item1.addActionListener(_ExportAction(self._do_export, invocation, True))
+            items.append(item1)
 
-        item2 = JMenuItem("Export to last dir")
-        item2.addActionListener(_ExportAction(self._do_export, invocation, False))
-        if self._last_export_dir is None:
-            item2.setToolTipText("No previous directory - will prompt for one")
-        else:
-            item2.setToolTipText(self._last_export_dir)
-        items.append(item2)
+            item2 = JMenuItem("Export to last dir")
+            item2.addActionListener(_ExportAction(self._do_export, invocation, False))
+            if self._last_export_dir is None:
+                item2.setToolTipText("No previous directory - will prompt for one")
+            else:
+                item2.setToolTipText(self._last_export_dir)
+            items.append(item2)
 
-        return items
+            return items
+        return None
 
     # -------------------------------------------------------------------------
     # Export logic
@@ -144,8 +150,11 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
                 # Build and write file
                 content = self._format_export(
-                    order, h, msg,
-                    current_req, current_resp,
+                    order,
+                    h,
+                    msg,
+                    current_req,
+                    current_resp,
                 )
 
                 filename = "%s_request_%s.txt" % (str(order).zfill(pad), h)
